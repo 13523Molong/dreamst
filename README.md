@@ -1,97 +1,64 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Dreamst 应用介绍
 
-# Getting Started
+## 功能概述
+Dreamst 是一个基于 React Native 开发的聊天应用，主要功能包括：
+- 角色选择：从多个预设角色中选择对话对象
+- 模拟对话：与选定角色进行文本聊天
+- 响应式界面：适配不同屏幕尺寸和设备类型
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## 页面介绍
 
-## Step 1: Start Metro
+### 1. 主页 (HomeScreen)
+- 以网格形式展示多个角色卡片
+- 每个角色卡片包含：
+  - 角色头像
+  - 角色名称
+  - 角色简短描述
+- 点击角色卡片进入聊天界面
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+### 2. 聊天页 (ChatScreen)
+- 顶部显示当前角色名称
+- 中部显示聊天消息列表，包括：
+  - 角色欢迎消息
+  - 用户发送的消息
+  - 角色回复的消息
+- 底部为消息输入框和发送按钮
+- 支持键盘自适应，避免遮挡输入框
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+## 技术栈
+- React Native 0.80.2
+- TypeScript 5.0.4
+- React Navigation 7.x
+- React 19.1.0
 
-```sh
-# Using npm
+## 运行项目
+```bash
+# 安装依赖
+npm install
+
+# 启动开发服务器
 npm start
 
-# OR using Yarn
-yarn start
-```
-
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
+# 运行Android应用
 npm run android
 
-# OR using Yarn
-yarn android
-```
-
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
+# 运行iOS应用
 npm run ios
-
-# OR using Yarn
-yarn ios
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+## 项目结构
+```
+dreamst/
+├── src/
+│   ├── screens/       # 页面组件
+│   │   ├── HomeScreen.tsx
+│   │   └── ChatScreen.tsx
+│   ├── components/    # 可复用组件
+│   │   └── ChatBubble.tsx
+│   ├── types/         # 类型定义
+│   │   └── role.ts
+│   └── assets/        # 静态资源
+│       └── index.ts
+├── App.tsx           # 应用入口
+└── package.json      # 项目配置
+```
