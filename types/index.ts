@@ -1,14 +1,38 @@
-// 角色相关类型定义
+/**
+ * 角色相关类型定义
+ * 
+ * @description 定义角色的完整数据结构，包含展示和交互所需的所有信息
+ */
 export interface Role {
+  /** 角色唯一标识符 */
   id: string;
+  
+  /** 角色名称 */
   name: string;
+  
+  /** 角色头像URL或本地资源 */
   avatar: string;
+  
+  /** 角色详细描述 */
   description: string;
+  
+  /** 角色完整图片资源（用于背景展示） */
   image: any;
+  
+  /** 角色称号或职业 */
   promote: string;
+  
+  /** 角色特征标签 */
   tags: string[];
+  
+  /** 角色问候语/台词 */
   greeting: string;
+  
+  /** 陪伴天数统计 */
   accompanyDays: number;
+  
+  /** 角色剪影图片（用于卡片展示） */
+  silhouette: any;
 }
 
 // 音频相关类型定义
