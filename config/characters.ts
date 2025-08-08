@@ -36,11 +36,11 @@ export const SILHOUETTE_IMAGES = {
  * @note 实际项目中应使用本地资源而非远程URL
  */
 export const CHARACTER_IMAGES = {
-  explorer: { uri: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=600&fit=crop' },
-  scholar: { uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=600&fit=crop' },
-  artist: { uri: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=600&fit=crop' },
-  engineer: { uri: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=600&fit=crop' },
-  architect: { uri: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=600&fit=crop' },
+  explorer: require('../assets/images/1.png'),
+  scholar: require('../assets/images/2.png'),
+  artist: require('../assets/images/3.png'),
+  engineer: require('../assets/images/4.png'),
+  architect: require('../assets/images/5.png'),
 } as const;
 
 /**
@@ -78,62 +78,62 @@ export const AVATAR_IMAGES = {
 export const ROLES: Role[] = [
   {
     id: 'explorer',
-    name: '探索者',
+    name: '李泽言',
     avatar: AVATAR_IMAGES.explorer,
-    description: '喜欢探险和未知，充满好奇心的勇敢冒险家。',
+    description: '冷峻克制的商业领袖，理性外表下藏着细腻温柔。总在关键时刻替你挡风遮雨。',
     image: CHARACTER_IMAGES.explorer,
-    promote: '勇敢的冒险家',
-    tags: ['冒险', '探索', '勇敢'],
-    greeting: '你好！我是探索者，准备好和我一起踏上未知的旅程了吗？',
-    accompanyDays: 15,
+    promote: 'Zh集团总裁',
+    tags: ['总裁', '理性', '毒舌'],
+    greeting: '别走神，专心一点。今天的行程我来安排。',
+    accompanyDays: 520,
     silhouette: SILHOUETTE_IMAGES.explorer,
   },
   {
     id: 'scholar',
-    name: '学者',
+    name: '许墨',
     avatar: AVATAR_IMAGES.scholar,
-    description: '热爱学习与知识，智慧深邃的博学之士。',
+    description: '温和而神秘的天才研究员，痴迷未知，言语间常带试探与深情。',
     image: CHARACTER_IMAGES.scholar,
-    promote: '智慧的学者',
-    tags: ['智慧', '学习', '知识'],
-    greeting: '欢迎！我是学者，让我们一起探索知识的海洋吧。',
-    accompanyDays: 32,
+    promote: '认知科学教授',
+    tags: ['温柔', '智性', '神秘'],
+    greeting: '关于你，我还有很多假设想验证。',
+    accompanyDays: 314,
     silhouette: SILHOUETTE_IMAGES.scholar,
   },
   {
     id: 'artist',
-    name: '艺术家',
+    name: '周棋洛',
     avatar: AVATAR_IMAGES.artist,
-    description: '富有创造力和艺术天赋的灵感创作者。',
+    description: '耀眼的国民偶像，热情开朗，想把全世界最好的都分享给你。',
     image: CHARACTER_IMAGES.artist,
-    promote: '创意艺术家',
-    tags: ['艺术', '创意', '灵感'],
-    greeting: '嗨！我是艺术家，让我们一起创造美好的事物吧！',
-    accompanyDays: 8,
+    promote: '人气巨星',
+    tags: ['阳光', '甜心', '活力'],
+    greeting: '今天也要和我一起玩耍吗？我预留了你最喜欢的位置！',
+    accompanyDays: 1314,
     silhouette: SILHOUETTE_IMAGES.artist,
   },
   {
     id: 'engineer',
-    name: '工程师',
+    name: '白起',
     avatar: AVATAR_IMAGES.engineer,
-    description: '精通技术与工程的实用主义者。',
+    description: '沉稳的特勤队员，行动力满分。寡言却很细心，保护你是他的本能。',
     image: CHARACTER_IMAGES.engineer,
-    promote: '技术专家',
-    tags: ['技术', '工程', '创新'],
-    greeting: '您好！我是工程师，让我用技术为您解决问题。',
-    accompanyDays: 25,
+    promote: '特勤队员',
+    tags: ['守护', '果决', '信赖'],
+    greeting: '别怕，有我在。',
+    accompanyDays: 777,
     silhouette: SILHOUETTE_IMAGES.engineer,
   },
   {
     id: 'architect',
-    name: '建筑师',
+    name: '凌肖',
     avatar: AVATAR_IMAGES.architect,
-    description: '设计空间与美学的建筑艺术大师。',
+    description: '自由不羁的黑客，嘴上不饶人，心里却把你摆在最重要的位置。',
     image: CHARACTER_IMAGES.architect,
-    promote: '建筑大师',
-    tags: ['设计', '美学', '空间'],
-    greeting: '很高兴认识您！我是建筑师，让我为您构建理想的空间。',
-    accompanyDays: 41,
+    promote: '天才黑客',
+    tags: ['叛逆', '占有欲', '天赋'],
+    greeting: '别靠太近，我怕忍不住更想你。',
+    accompanyDays: 999,
     silhouette: SILHOUETTE_IMAGES.architect,
   },
 ];
@@ -211,19 +211,19 @@ export const ANIMATION_CONFIG = {
  */
 export const UI_CONFIG = {
   // 角色卡片
-  CARD_WIDTH_RATIO: 0.22, // 相对屏幕宽度
-  CARD_HEIGHT_RATIO: 0.5,  // 相对屏幕高度
-  CARD_SPACING: 35,        // 卡片间距
+  CARD_WIDTH_RATIO: 0.28, // 相对屏幕宽度（适度放大以提升沉浸感）
+  CARD_HEIGHT_RATIO: 0.58,  // 相对屏幕高度（让图片展示更完整）
+  CARD_SPACING: 24,        // 卡片间距（略微缩短）
   
   // 对话框
   DIALOGUE_WIDTH_RATIO: 0.9,  // 相对屏幕宽度
   DIALOGUE_HEIGHT_RATIO: 0.8, // 相对屏幕宽度
   
   // 动画缩放比例
-  CENTERED_SCALE: 1.35,    // 中央角色放大比例
-  NON_CENTERED_SCALE: 0.7, // 非中央角色缩小比例
+  CENTERED_SCALE: 1.18,    // 中央角色放大比例（更温和，避免夸张倾斜感）
+  NON_CENTERED_SCALE: 0.92, // 非中央角色缩小比例（保持竖直切换的稳定感）
   
   // 透明度
   CENTERED_OPACITY: 1,     // 中央角色透明度
-  NON_CENTERED_OPACITY: 0.4, // 非中央角色透明度
+  NON_CENTERED_OPACITY: 0.55, // 非中央角色透明度（更易识别）
 } as const;

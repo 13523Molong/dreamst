@@ -14,7 +14,6 @@
  * - 流畅的页面转场动画
  */
 
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -52,6 +51,7 @@ const { width, height } = Dimensions.get('window');
 
 // 将 AnimatedRoleItem 提升到最外层
 import type { ViewStyle } from 'react-native';
+import type { SharedValue } from 'react-native-reanimated';
 
   const AnimatedRoleItem = React.memo(({ 
   item, 
@@ -105,27 +105,12 @@ import type { ViewStyle } from 'react-native';
       Extrapolate.CLAMP
     );
 
-    // 轻微旋转效果增强立体感
-    const rotateZ = interpolate(
-      scrollValue,
-      inputRange,
-      [-5, 0, 5],
-      Extrapolate.CLAMP
-    );
-
-    // 添加模糊效果的模拟（通过透明度和缩放）
-    const blur = interpolate(
-      scrollValue,
-      inputRange,
-      [1, 0, 1], // 中央角色清晰，其他模糊
-      Extrapolate.CLAMP
-    );
+    // 取消左右倾斜，保持卡片竖直
 
     return {
       transform: [
         { scale: scale || 1 },
         { translateY: translateY || 0 },
-        { rotateZ: `${rotateZ || 0}deg` }
       ],
       opacity: opacity || 1,
       // 添加阴影效果增强层次感
@@ -152,7 +137,7 @@ import type { ViewStyle } from 'react-native';
         style={[
           animatedStyle,
           { 
-            width: width * UI_CONFIG.CARD_WIDTH_RATIO + (isCentered ? width * 0.6 : 0), // 为中央角色的信息区域预留更多宽度
+            width: width * UI_CONFIG.CARD_WIDTH_RATIO,
             marginHorizontal: UI_CONFIG.CARD_SPACING / 2,
             // 为中央角色添加额外的z-index
             zIndex: isCentered ? 10 : 1,
@@ -197,21 +182,22 @@ const AnimatedCard = React.memo(({
 const useAnimatedStyles = (expandingRoleId: string | null) => {
   const expandingStyle = useAnimatedStyle(() => {
     'worklet';
-    if (!expandingRoleId) return {};
+    const targetScale = expandingRoleId ? withSpring(1.15) : 1;
+    const targetTranslateY = expandingRoleId ? withSpring(-20) : 0;
     return {
-      zIndex: 10,
+      zIndex: expandingRoleId ? 10 : 0,
       transform: [
-        { scale: withSpring(1.15) },
-        { translateY: withSpring(-20) },
+        { scale: targetScale as unknown as number },
+        { translateY: targetTranslateY as unknown as number },
       ],
     };
   });
 
   const fadingStyle = useAnimatedStyle(() => {
     'worklet';
-    if (!expandingRoleId) return {};
+    const targetOpacity = expandingRoleId ? withTiming(0, { duration: 300 }) : 1;
     return {
-      opacity: withTiming(0, { duration: 300 }),
+      opacity: targetOpacity as unknown as number,
     };
   });
 
@@ -390,7 +376,7 @@ export default function Index() {
                   // 中央角色的图片样式增强
                   isCentered && styles.centeredSilhouetteImage
                 ]}
-                resizeMode="contain"
+                resizeMode="cover"
               />
               
               {/* 高光效果 */}
@@ -428,30 +414,11 @@ export default function Index() {
                 <Text style={styles.name}>{item.name}</Text>
                 <Text style={styles.promote}>{item.promote}</Text>
               </View>
-              
-              {/* 角色描述 */}
-              <Text style={styles.desc}>{item.description}</Text>
-              
-              {/* 标签容器 */}
-              <View style={styles.tagsContainer}>
-                {item.tags.map((tag, tagIndex) => (
-                  <View key={tagIndex} style={styles.tag}>
-                    <Text style={styles.tagText}>{tag}</Text>
-                  </View>
-                ))}
-              </View>
-              
-              {/* 陪伴信息 */}
-              <View style={styles.accompanyInfo}>
-                <Ionicons name="time-outline" size={14} color="#888" />
-                <Text style={styles.accompanyText}>陪伴 {item.accompanyDays} 天</Text>
-              </View>
-              
-              {/* 点击提示 */}
-              <View style={styles.tapHint}>
-                <Text style={styles.tapHintText}>点击进入对话</Text>
-                <Ionicons name="chevron-forward" size={16} color="#999" />
-              </View>
+
+              {/* 角色描述（简洁不遮挡卡片） */}
+              <Text style={styles.desc} numberOfLines={2} ellipsizeMode="tail">
+                {item.description}
+              </Text>
             </Animated.View>
           )}
         </View>
@@ -561,7 +528,7 @@ const RoleList = React.memo(({
   onSelectIndex: (index: number) => void;
   flatListRef: React.RefObject<FlatList<Role> | null>;
 }): React.ReactElement => {
-  const scrollX = useSharedValue(0);
+  const scrollX: SharedValue<number> = useSharedValue(0);
   
   const onScroll = (event: any) => {
     'worklet';
@@ -715,11 +682,11 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   listContainer: {
-    paddingVertical: height * 0.12,
+    paddingVertical: height * 0.1,
     paddingHorizontal: width * 0.05,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: height * 0.25, // 为下方文字信息留出更多空间
+    paddingBottom: height * 0.22, // 卡片更高，底部空间略收紧
   },
   cardContainer: {
     width: width * UI_CONFIG.CARD_WIDTH_RATIO, // 使用配置常量设置卡片宽度
@@ -774,13 +741,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   silhouetteImage: {
-    width: '80%',
-    height: '80%',
+    width: '100%',
+    height: '100%',
     opacity: 0.9,
   },
   centeredSilhouetteImage: {
-    width: '85%',
-    height: '85%',
+    width: '100%',
+    height: '100%',
     opacity: 1,
   },
   selectionGlow: {
