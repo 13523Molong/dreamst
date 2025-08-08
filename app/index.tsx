@@ -19,26 +19,26 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Dimensions,
-  FlatList,
-  Platform,
-  Image as RNImage,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Dimensions,
+    FlatList,
+    Platform,
+    Image as RNImage,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import Animated, {
-  Extrapolate,
-  FadeOut,
-  interpolate,
-  SlideInDown,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming
+    Extrapolate,
+    FadeOut,
+    interpolate,
+    SlideInDown,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+    withTiming
 } from 'react-native-reanimated';
 
 // 导入自定义组件和服务
@@ -433,7 +433,7 @@ export default function Index() {
         const role = ROLES.find(r => r.id === expandingRoleId);
         if (role) {
           router.push({
-            pathname: '/dialogue',
+            pathname: '/chat',
             params: { character: JSON.stringify(role) }
           });
         }

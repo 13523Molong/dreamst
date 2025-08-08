@@ -88,7 +88,7 @@ function PlayVisualizer({ active, energy }: { active: boolean; energy: SharedVal
   );
 }
 
-function GradientBorderBubble({ children, radius = 34, thickness = 2, active = false, label }: { children: React.ReactNode; radius?: number; thickness?: number; active?: boolean; label?: string }) {
+function GradientBorderBubble({ children, radius = 34, thickness = 2, active = false, label, fillColor = 'rgba(255,255,255,0.96)' }: { children: React.ReactNode; radius?: number; thickness?: number; active?: boolean; label?: string; fillColor?: string }) {
   // 通过阶段循环改变渐变的起止点，模拟动态边框
   const [phase, setPhase] = useState(0);
   const rotate = useSharedValue(0);
@@ -170,7 +170,7 @@ function GradientBorderBubble({ children, radius = 34, thickness = 2, active = f
         style={[StyleSheet.absoluteFill, haloStyle, { borderRadius: radius + 12, left: -12, right: -12, top: -12, bottom: -12, borderWidth: 2, borderColor: 'rgba(74,144,226,0.35)' }]}
       />
       <View style={{ padding: thickness }}>
-        <View style={{ borderRadius: radius - thickness, backgroundColor: 'rgba(255,255,255,0.96)' }}>
+        <View style={{ borderRadius: radius - thickness, backgroundColor: fillColor }}>
           {children}
         </View>
         {/* 斜向高光扫过 */}
@@ -225,6 +225,8 @@ export default function Chat() {
   const [isPlaying, setIsPlaying] = useState(false);
   const scrollRef = useRef<ScrollView | null>(null);
   const energy = useSharedValue(0);
+  const [isTyping, setIsTyping] = useState(false);
+  const [inputText, setInputText] = useState('');
 
   type Message = { id: string; text: string; sender: 'me' | 'role'; timestamp: number };
   const [messages, setMessages] = useState<Message[]>(() => [
@@ -284,6 +286,26 @@ export default function Chat() {
   const r1 = ringStyle(1);
   const r2 = ringStyle(0.88);
   const r3 = ringStyle(0.76);
+
+  // 圆形/气泡模式切换
+  const hasRoleMessage = useMemo(() => messages.some((m) => m.sender === 'role'), [messages]);
+  const latestRoleText = useMemo(() => {
+    const list = messages.filter((m) => m.sender === 'role');
+    return list.length ? list[list.length - 1].text : '';
+  }, [messages]);
+  const bubbleMode = useSharedValue(0); // 0: circle, 1: pill
+  const isCircle = !hasRoleMessage && !isTyping;
+  const circleSize = 76;
+  const pillWidth = Math.min(width * 0.9, 360);
+  const pillHeight = 88;
+  useEffect(() => {
+    bubbleMode.value = withTiming(isCircle ? 0 : 1, { duration: 260, easing: Easing.out(Easing.quad) });
+  }, [isCircle, bubbleMode]);
+  const bubbleStyle = useAnimatedStyle(() => ({
+    width: circleSize + (pillWidth - circleSize) * bubbleMode.value,
+    height: circleSize + (pillHeight - circleSize) * bubbleMode.value,
+    alignSelf: 'center',
+  }));
 
   // 玻璃拟物圆钮（内凹 + 高光边 + 按下弹性凹陷）
   const GlassButton = ({ children, pressed }: { children: React.ReactNode; pressed?: boolean }) => {
@@ -367,26 +389,34 @@ export default function Chat() {
             <View style={{ height: 8 }} />
           </ScrollView>
 
-          {/* 底部输入区 */}
-          <Animated.View style={styles.inputBarWrapper} entering={SlideInUp.springify()}>
-            <GradientBorderBubble active={isActive} label={label}>
-              <TouchableOpacity
-                activeOpacity={0.9}
-                onLongPress={onLongPressMic}
-                onPressOut={onPressOutMic}
-                delayLongPress={220}
-                style={styles.inputInnerCenter}
-                onPress={onTogglePlay}
-              >
-                {/* 扩散波纹 */}
-                <RippleWaves active={isRecording || isPlaying} energy={energy} />
-                <GlassButton pressed={isRecording || isPlaying}>
-                  <Ionicons name={isPlaying ? 'pause' : 'play'} size={22} color={isPlaying ? '#e74c3c' : '#4a90e2'} />
-                  {/* 播放可视化条 */}
-                  {isPlaying ? <PlayVisualizer active energy={energy} /> : null}
-                </GlassButton>
-              </TouchableOpacity>
-            </GradientBorderBubble>
+          {/* 圆形/气泡自适应对话框：无消息时圆形（点击输入/长按录音），有消息后气泡显示文字 */}
+          <Animated.View style={styles.dialogWrapper} entering={SlideInUp.springify()}>
+            <Animated.View style={bubbleStyle}>
+              <GradientBorderBubble active={isActive || isTyping} label={!hasRoleMessage ? '点击输入 · 长按语音' : undefined} fillColor={'rgba(255,255,255,0.22)'}>
+                {/* 内容层：圆形模式 -> 中心按钮；气泡模式 -> 文本内容 */}
+                {isCircle ? (
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() => setIsTyping(true)}
+                    onLongPress={onLongPressMic}
+                    onPressOut={onPressOutMic}
+                    delayLongPress={220}
+                    style={styles.circleContent}
+                  >
+                    <RippleWaves active={isRecording || isPlaying} energy={energy} />
+                    <GlassButton pressed={isRecording || isPlaying}>
+                      <Ionicons name={isPlaying ? 'pause' : 'play'} size={22} color={isPlaying ? '#e74c3c' : '#4a90e2'} />
+                    </GlassButton>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.pillContent}>
+                    <Text style={styles.pillText} numberOfLines={2}>
+                      {latestRoleText || '...'}
+                    </Text>
+                  </View>
+                )}
+              </GradientBorderBubble>
+            </Animated.View>
           </Animated.View>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -448,11 +478,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
   },
+  dialogWrapper: {
+    paddingHorizontal: 16,
+    paddingBottom: 18,
+  },
   inputInnerCenter: {
     height: 56,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 28,
+  },
+  dialogBubble: {
+    minHeight: 72,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  circleContent: {
+    height: 76,
+    width: 76,
+    borderRadius: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pillContent: {
+    minHeight: 88,
+    minWidth: 160,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    justifyContent: 'center',
+  },
+  pillText: {
+    color: 'rgba(255,255,255,0.95)',
+    fontSize: 15,
+    lineHeight: 20,
   },
   centerButton: {
     width: 44,
