@@ -27,7 +27,10 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
+    Modal,
+    ScrollView,
+    Pressable
 } from 'react-native';
 import Animated, {
     Easing,
@@ -40,6 +43,9 @@ import Animated, {
 
 // 导入类型定义
 import type { Role } from '../types';
+import { Ionicons } from '@expo/vector-icons';
+import { fetchHistoryMessages } from '../components/UploadService';
+import { API_CONFIG } from '../config/app.config';
 
 // 获取设备屏幕尺寸
 const { width, height } = Dimensions.get('window');
@@ -61,6 +67,9 @@ export default function DialogueScreen() {
   // === 状态管理 ===
   /** 是否已播放问候语 */
   const [isGreetingPlayed, setIsGreetingPlayed] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [history, setHistory] = useState<Array<{ id: string; conversation_id: string; sender: 'user' | 'role' | 'system' | 'hardware'; text?: string; created_at: string }>>([]);
   
   /** 动画是否完成 */
   const [isAnimationComplete, setIsAnimationComplete] = useState(false);
@@ -282,6 +291,27 @@ export default function DialogueScreen() {
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Text style={styles.backButtonText}>{'< 返回'}</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          onPress={async () => {
+            try {
+              setShowHistory(true);
+              setHistoryLoading(true);
+              const userId = 'demo-user-001';
+              const roleId = character.id;
+              const baseUrl = API_CONFIG.baseUrl;
+              const data = await fetchHistoryMessages({ baseUrl, userId, roleId, limit: 100 });
+              setHistory(data);
+            } catch (e) {
+              console.warn(e);
+            } finally {
+              setHistoryLoading(false);
+            }
+          }}
+          style={{ marginLeft: 'auto', marginRight: 4, padding: 8 }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="time-outline" size={22} color="#fff" />
+        </TouchableOpacity>
       </View>
       
       {/* 主内容区域 */}
@@ -429,6 +459,36 @@ export default function DialogueScreen() {
           </Animated.View>
         </View>
       </View>
+      {/* 历史会话弹窗 */}
+      <Modal visible={showHistory} transparent animationType="fade" onRequestClose={() => setShowHistory(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ maxHeight: '68%', backgroundColor: '#121418', borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingTop: 10 }}>
+            <View style={{ paddingHorizontal: 16, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ color: '#eaf2ff', fontSize: 16, fontWeight: '700' }}>历史会话</Text>
+              <Pressable onPress={() => setShowHistory(false)} style={{ padding: 6 }}>
+                <Ionicons name="close" size={22} color="#eaf2ff" />
+              </Pressable>
+            </View>
+            <ScrollView style={{ paddingHorizontal: 12 }} contentContainerStyle={{ paddingBottom: 24 }}>
+              {historyLoading ? (
+                <Text style={{ color: '#9fb3d1', textAlign: 'center', paddingVertical: 20 }}>加载中...</Text>
+              ) : history.length === 0 ? (
+                <Text style={{ color: '#9fb3d1', textAlign: 'center', paddingVertical: 20 }}>暂无历史</Text>
+              ) : (
+                history.map((m) => (
+                  <View key={m.id} style={{ marginVertical: 6, flexDirection: 'row', justifyContent: m.sender === 'user' ? 'flex-end' : 'flex-start' }}>
+                    <View style={{ maxWidth: '82%', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 12, backgroundColor: m.sender === 'user' ? 'rgba(74,144,226,0.18)' : 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: m.sender === 'user' ? 'rgba(74,144,226,0.35)' : 'rgba(255,255,255,0.25)' }}>
+                      <Text style={{ color: '#eaf2ff', fontSize: 14, lineHeight: 19 }}>
+                        {(m.sender === 'system' ? '角色' : m.sender === 'role' ? '角色' : '玩家') + '：'}{m.text || ''}
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

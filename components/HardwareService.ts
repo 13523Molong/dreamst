@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import BLEService from './BLEService';
 
 export interface HardwareDevice {
   id: string;
@@ -29,9 +30,11 @@ class HardwareService extends EventEmitter {
   async initialize() {
     try {
       console.log('🔧 初始化硬件服务');
-      
-      // 这里可以添加实际的硬件初始化逻辑
-      // 例如：蓝牙初始化、传感器初始化等
+      // 初始化 BLE（若原生依赖不可用则静默）
+      await BLEService.getInstance().initialize({
+        // 先不指定 UUID，等你提供后再填
+        filterNamePrefix: undefined,
+      });
       
       // 模拟一些默认设备
       this.addDevice({
@@ -81,17 +84,25 @@ class HardwareService extends EventEmitter {
       }
 
       console.log(`🔗 正在连接设备: ${device.name}`);
+      let ok = false;
+      // 如果是蓝牙设备并且 BLE 可用，尝试真实连接
+      if (device.type === 'bluetooth' && BLEService.getInstance().isAvailable) {
+        ok = await BLEService.getInstance().connect(deviceId);
+      } else {
+        // 模拟连接过程
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        ok = true;
+      }
 
-      // 模拟连接过程
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      device.isConnected = true;
+      device.isConnected = ok;
       this.devices.set(deviceId, device);
       
-      this.emit('deviceConnected', device);
-      console.log(`✅ 设备连接成功: ${device.name}`);
-      
-      return true;
+      if (ok) {
+        this.emit('deviceConnected', device);
+        console.log(`✅ 设备连接成功: ${device.name}`);
+        return true;
+      }
+      throw new Error('连接失败');
     } catch (error) {
       console.error('设备连接失败:', error);
       this.emit('deviceConnectionFailed', { deviceId, error });
@@ -128,29 +139,41 @@ class HardwareService extends EventEmitter {
   // 扫描设备
   async scanDevices(): Promise<HardwareDevice[]> {
     try {
-      if (this.isScanning) {
-        return Array.from(this.devices.values());
-      }
+      if (this.isScanning) return Array.from(this.devices.values());
 
       this.isScanning = true;
       console.log('🔍 开始扫描硬件设备');
 
-      // 模拟扫描过程
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      if (BLEService.getInstance().isAvailable) {
+        const results = await BLEService.getInstance().scanOnce(4000);
+        for (const d of results) {
+          const device: HardwareDevice = {
+            id: d.id,
+            name: d.name || '未知蓝牙设备',
+            type: 'bluetooth',
+            isConnected: false,
+            batteryLevel: undefined,
+            signalStrength: typeof d.rssi === 'number' ? Math.max(0, Math.min(100, (d.rssi + 100) * 2)) : undefined,
+          };
+          this.devices.set(device.id, device);
+          this.emit('deviceAdded', device);
+        }
+      } else {
+        // 保留模拟回退
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        const mock: HardwareDevice = {
+          id: `device-${Date.now()}`,
+          name: '模拟蓝牙设备',
+          type: 'bluetooth',
+          isConnected: false,
+          batteryLevel: 75,
+          signalStrength: 80,
+        };
+        this.devices.set(mock.id, mock);
+        this.emit('deviceAdded', mock);
+      }
 
-      // 模拟发现新设备
-      const newDevice: HardwareDevice = {
-        id: `device-${Date.now()}`,
-        name: '新发现设备',
-        type: 'bluetooth',
-        isConnected: false,
-        batteryLevel: 75,
-        signalStrength: 80
-      };
-
-      this.addDevice(newDevice);
       this.isScanning = false;
-
       return Array.from(this.devices.values());
     } catch (error) {
       console.error('设备扫描失败:', error);

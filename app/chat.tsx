@@ -9,13 +9,15 @@
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Dimensions, ImageBackground, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+ import { Dimensions, ImageBackground, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal, Pressable } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, { Easing, FadeIn, FadeOut, SlideInDown, SlideInUp, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
-import { CHARACTER_IMAGES, ROLES } from '../config/characters';
+ import { CHARACTER_IMAGES, ROLES } from '../config/characters';
 import type { Role } from '../types';
+ import { fetchHistoryMessages } from '../components/UploadService';
+ import { API_CONFIG } from '../config/app.config';
 
 export const options = {
   headerShown: false,
@@ -227,6 +229,9 @@ export default function Chat() {
   const energy = useSharedValue(0);
   const [isTyping, setIsTyping] = useState(false);
   const [inputText, setInputText] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [history, setHistory] = useState<{ id: string; conversation_id: string; sender: 'user' | 'role' | 'system' | 'hardware'; text?: string; created_at: string }[]>([]);
 
   type Message = { id: string; text: string; sender: 'me' | 'role'; timestamp: number };
   const [messages, setMessages] = useState<Message[]>(() => [
@@ -295,9 +300,9 @@ export default function Chat() {
   }, [messages]);
   const bubbleMode = useSharedValue(0); // 0: circle, 1: pill
   const isCircle = !hasRoleMessage && !isTyping;
-  const circleSize = 76;
-  const pillWidth = Math.min(width * 0.9, 360);
-  const pillHeight = 88;
+  const circleSize = 84;
+  const pillWidth = Math.min(width * 0.92, 392);
+  const pillHeight = 100;
   useEffect(() => {
     bubbleMode.value = withTiming(isCircle ? 0 : 1, { duration: 260, easing: Easing.out(Easing.quad) });
   }, [isCircle, bubbleMode]);
@@ -334,6 +339,35 @@ export default function Chat() {
   };
 
   // 简易星尘粒子漂浮
+  const renderHeaderActions = () => {
+    return (
+      <View style={{ position: 'absolute', right: 12, top: 4, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <TouchableOpacity
+          onPress={async () => {
+            try {
+              setShowHistory(true);
+              setHistoryLoading(true);
+              // TODO: 替换为实际用户ID与后端地址
+              const userId = 'demo-user-001';
+              const roleId = parsedRole?.id;
+              const baseUrl = API_CONFIG.baseUrl;
+              const data = await fetchHistoryMessages({ baseUrl, userId, roleId, limit: 100 });
+              setHistory(data);
+            } catch (e) {
+              console.warn(e);
+            } finally {
+              setHistoryLoading(false);
+            }
+          }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={{ padding: 8 }}
+        >
+          <Ionicons name="time-outline" size={22} color="#eaf2ff" />
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   const StarField = () => {
     const stars = new Array(24).fill(0).map((_, i) => ({
       key: `s${i}`,
@@ -367,6 +401,7 @@ export default function Chat() {
           {/* 顶部标题 */}
           <Animated.View style={styles.headerArea} entering={SlideInDown.springify()}>
             <Text style={styles.headerTitle}>{parsedRole?.name || 'EVOL LOVE'}</Text>
+            {renderHeaderActions()}
           </Animated.View>
 
           {/* 背景同心环装饰 */}
@@ -420,6 +455,37 @@ export default function Chat() {
           </Animated.View>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      {/* 历史会话弹窗 */}
+      <Modal visible={showHistory} transparent animationType="fade" onRequestClose={() => setShowHistory(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ maxHeight: '68%', backgroundColor: '#121418', borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingTop: 10 }}>
+            <View style={{ paddingHorizontal: 16, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ color: '#eaf2ff', fontSize: 16, fontWeight: '700' }}>历史会话</Text>
+              <Pressable onPress={() => setShowHistory(false)} style={{ padding: 6 }}>
+                <Ionicons name="close" size={22} color="#eaf2ff" />
+              </Pressable>
+            </View>
+            <ScrollView style={{ paddingHorizontal: 12 }} contentContainerStyle={{ paddingBottom: 24 }}>
+              {historyLoading ? (
+                <Text style={{ color: '#9fb3d1', textAlign: 'center', paddingVertical: 20 }}>加载中...</Text>
+              ) : history.length === 0 ? (
+                <Text style={{ color: '#9fb3d1', textAlign: 'center', paddingVertical: 20 }}>暂无历史</Text>
+              ) : (
+                history.map((m) => (
+                  <View key={m.id} style={{ marginVertical: 6, flexDirection: 'row', justifyContent: m.sender === 'user' ? 'flex-end' : 'flex-start' }}>
+                    <View style={{ maxWidth: '82%', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 12, backgroundColor: m.sender === 'user' ? 'rgba(74,144,226,0.18)' : 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: m.sender === 'user' ? 'rgba(74,144,226,0.35)' : 'rgba(255,255,255,0.25)' }}>
+                      <Text style={{ color: '#eaf2ff', fontSize: 14, lineHeight: 19 }}>
+                        {(m.sender === 'system' ? '角色' : m.sender === 'role' ? '角色' : '玩家') + '：'}{m.text || ''}
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </Animated.View>
   );
 }
@@ -480,7 +546,7 @@ const styles = StyleSheet.create({
   },
   dialogWrapper: {
     paddingHorizontal: 16,
-    paddingBottom: 18,
+    paddingBottom: 100,
   },
   inputInnerCenter: {
     height: 56,
@@ -497,9 +563,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   circleContent: {
-    height: 76,
-    width: 76,
-    borderRadius: 38,
+    height: 84,
+    width: 84,
+    borderRadius: 42,
     alignItems: 'center',
     justifyContent: 'center',
   },

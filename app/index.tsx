@@ -28,7 +28,9 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
+    Modal,
+    ActivityIndicator,
 } from 'react-native';
 import Animated, {
     Extrapolate,
@@ -43,8 +45,12 @@ import Animated, {
 
 // 导入自定义组件和服务
 import AudioService from '../components/AudioService';
+import UploadService from '../components/UploadService';
+import TransferService from '../components/TransferService';
+import * as FileSystem from 'expo-file-system';
+import HardwareService from '../components/HardwareService';
 import { ANIMATION_CONFIG, ROLES, UI_CONFIG } from '../config/characters';
-import type { Role } from '../types';
+import type { Role, HardwareDevice } from '../types';
 
 // 获取设备屏幕尺寸
 const { width, height } = Dimensions.get('window');
@@ -229,6 +235,161 @@ export default function Index() {
   
   /** 正在执行展开动画的角色ID */
   const [expandingRoleId, setExpandingRoleId] = useState<string | null>(null);
+
+  // === 硬件/蓝牙连接强制检测 ===
+  const hardware = useRef(HardwareService.getInstance()).current;
+  const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [bleModalVisible, setBleModalVisible] = useState<boolean>(false);
+  const [devices, setDevices] = useState<HardwareDevice[]>([]);
+  const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [connectingId, setConnectingId] = useState<string | null>(null);
+  // 调试工具
+  const [debugModalVisible, setDebugModalVisible] = useState<boolean>(false);
+  const [isBusy, setIsBusy] = useState<boolean>(false);
+  
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      await hardware.initialize();
+      const has = hardware.hasConnectedDevices();
+      if (!mounted) return;
+      setIsConnected(has);
+      if (!has) setBleModalVisible(true);
+    })();
+
+    const onConnected = () => {
+      setIsConnected(true);
+      setBleModalVisible(false);
+    };
+    const onDisconnected = () => {
+      const has = hardware.hasConnectedDevices();
+      setIsConnected(has);
+      if (!has) setBleModalVisible(true);
+    };
+    hardware.on('deviceConnected', onConnected);
+    hardware.on('deviceDisconnected', onDisconnected);
+
+    return () => {
+      mounted = false;
+      hardware.off('deviceConnected', onConnected);
+      hardware.off('deviceDisconnected', onDisconnected);
+    };
+  }, [hardware]);
+
+  const scanDevices = async () => {
+    try {
+      setIsScanning(true);
+      const list = await hardware.scanDevices();
+      setDevices(list);
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const connectTo = async (id: string) => {
+    try {
+      setConnectingId(id);
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+      const ok = await hardware.connectDevice(id);
+      if (ok) {
+        setIsConnected(true);
+        setBleModalVisible(false);
+      }
+    } finally {
+      setConnectingId(null);
+    }
+  };
+
+  // ===== 调试：选择文件并直接上传 =====
+  const pickDocument = async (): Promise<{ uri: string; name?: string } | null> => {
+    try {
+      // 尝试使用 documentPicker，如未安装则回退到文件系统缓存提示
+      let DocumentPicker: any = null;
+      try { DocumentPicker = require('expo-document-picker'); } catch {}
+      if (DocumentPicker?.getDocumentAsync) {
+        const res = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, multiple: false });
+        if (res.canceled) return null;
+        const asset = res.assets?.[0];
+        if (!asset?.uri) return null;
+        return { uri: asset.uri, name: asset.name };
+      }
+      alert('未安装 expo-document-picker，无法选择本地文件');
+      return null;
+    } catch (e) {
+      console.error('选择文件失败', e);
+      return null;
+    }
+  };
+
+  const handlePickAndUpload = async () => {
+    try {
+      setIsBusy(true);
+      const picked = await pickDocument();
+      if (!picked) return;
+      const base64 = await FileSystem.readAsStringAsync(picked.uri, { encoding: FileSystem.EncodingType.Base64 });
+      const uploader = UploadService.getInstance();
+      const temp = await uploader.writeTempFile(base64, picked.name || `debug_${Date.now()}.bin`);
+      const res = await uploader.uploadFile(temp, '/upload');
+      alert(res.success ? '上传成功' : `上传失败: ${res.status}`);
+    } catch (e) {
+      alert('上传失败');
+      console.error(e);
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  // ===== 调试：选择文件并模拟 BLE 分片上传 =====
+  const handlePickAndSimulateBle = async () => {
+    try {
+      setIsBusy(true);
+      const picked = await pickDocument();
+      if (!picked) return;
+      const base64 = await FileSystem.readAsStringAsync(picked.uri, { encoding: FileSystem.EncodingType.Base64 });
+      // 分片推送到 TransferService
+      TransferService.getInstance().start();
+      const chunkSize = 1200; // base64 片段长度（非字节）
+      for (let i = 0; i < base64.length; i += chunkSize) {
+        const part = base64.slice(i, i + chunkSize);
+        TransferService.getInstance().pushBase64Chunk(part);
+        await new Promise(r => setTimeout(r, 5));
+      }
+      const result = await TransferService.getInstance().finalizeAndUpload(picked.name || `debug_${Date.now()}.bin`);
+      alert(result.success ? '模拟传输并上传成功' : '模拟传输上传失败');
+    } catch (e) {
+      alert('模拟传输失败');
+      console.error(e);
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  // ===== 调试：生成随机数据并模拟 BLE 分片上传 =====
+  const handleSimulateRandom = async () => {
+    try {
+      setIsBusy(true);
+      // 生成约 256KB 随机数据并转 base64
+      const size = 256 * 1024;
+      const bytes = new Uint8Array(size);
+      for (let i = 0; i < size; i++) bytes[i] = Math.floor(Math.random() * 256);
+      // 转 base64
+      const base64 = Buffer.from(bytes as unknown as Uint8Array).toString('base64');
+      TransferService.getInstance().start();
+      const chunkSize = 2000;
+      for (let i = 0; i < base64.length; i += chunkSize) {
+        const part = base64.slice(i, i + chunkSize);
+        TransferService.getInstance().pushBase64Chunk(part);
+        await new Promise(r => setTimeout(r, 2));
+      }
+      const result = await TransferService.getInstance().finalizeAndUpload(`random_${Date.now()}.bin`);
+      alert(result.success ? '随机数据上传成功' : '随机数据上传失败');
+    } catch (e) {
+      alert('随机数据模拟失败');
+      console.error(e);
+    } finally {
+      setIsBusy(false);
+    }
+  };
   
   // === 引用管理 ===
   /** 搜索输入框引用 */
@@ -269,8 +430,13 @@ export default function Index() {
     }
   };
 
-  // 角色选择处理
+  // 角色选择处理（未连接时强制连接）
   const handleRoleSelect = async (role: Role, index: number) => {
+    if (!isConnected) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      setBleModalVisible(true);
+      return;
+    }
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setSelectedIndex(index);
@@ -446,6 +612,10 @@ export default function Index() {
   useFocusEffect(
     React.useCallback(() => {
       setExpandingRoleId(null);
+      // 页面回到前台时再次校验连接
+      const has = hardware.hasConnectedDevices();
+      setIsConnected(has);
+      if (!has) setBleModalVisible(true);
     }, [])
   );
 
@@ -511,6 +681,89 @@ export default function Index() {
           ))}
         </View>
       </View>
+
+      {/* 强制蓝牙连接模态框 */}
+      <Modal visible={bleModalVisible} transparent animationType="fade">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>请先连接你的设备</Text>
+            <Text style={styles.modalSubtitle}>开启蓝牙并选择要连接的设备</Text>
+
+            <View style={{ height: 12 }} />
+            <TouchableOpacity onPress={scanDevices} style={styles.scanButton} disabled={isScanning}>
+              {isScanning ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.scanButtonText}>扫描设备</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={{ height: 10 }} />
+            <View style={{ maxHeight: 220, width: '100%' }}>
+              {devices.length === 0 ? (
+                <Text style={styles.emptyText}>未发现设备，请点击“扫描设备”</Text>
+              ) : (
+                <FlatList
+                  data={devices}
+                  keyExtractor={(d) => d.id}
+                  renderItem={({ item }) => (
+                    <View style={styles.deviceItem}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.deviceName}>{item.name}</Text>
+                        <Text style={styles.deviceMeta}>类型: {item.type}  电量: {item.batteryLevel ?? '-'}%  信号: {item.signalStrength ?? '-'}%</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.connectBtn}
+                        onPress={() => connectTo(item.id)}
+                        disabled={!!connectingId}
+                      >
+                        {connectingId === item.id ? (
+                          <ActivityIndicator color="#fff" />
+                        ) : (
+                          <Text style={styles.connectBtnText}>连接</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                />
+              )}
+            </View>
+
+            {/* 调试工具入口 */}
+            <View style={{ height: 12 }} />
+            <TouchableOpacity onPress={() => setDebugModalVisible(true)}>
+              <Text style={{ color: '#4a90e2', textAlign: 'center', fontWeight: '700' }}>没有设备？打开调试工具</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 调试工具模态框 */}
+      <Modal visible={debugModalVisible} transparent animationType="fade">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>调试工具</Text>
+            <Text style={styles.modalSubtitle}>用于无真实设备时验证上传链路</Text>
+            <View style={{ height: 12 }} />
+
+            <TouchableOpacity style={styles.debugBtn} onPress={handlePickAndUpload} disabled={isBusy}>
+              {isBusy ? <ActivityIndicator color="#fff" /> : <Text style={styles.debugBtnText}>选择文件并直接上传</Text>}
+            </TouchableOpacity>
+            <View style={{ height: 8 }} />
+            <TouchableOpacity style={styles.debugBtn} onPress={handlePickAndSimulateBle} disabled={isBusy}>
+              {isBusy ? <ActivityIndicator color="#fff" /> : <Text style={styles.debugBtnText}>选择文件并模拟 BLE 分片上传</Text>}
+            </TouchableOpacity>
+            <View style={{ height: 8 }} />
+            <TouchableOpacity style={styles.debugBtnSecondary} onPress={handleSimulateRandom} disabled={isBusy}>
+              <Text style={styles.debugBtnSecondaryText}>生成随机数据并模拟上传</Text>
+            </TouchableOpacity>
+            <View style={{ height: 12 }} />
+            <TouchableOpacity onPress={() => setDebugModalVisible(false)}>
+              <Text style={{ textAlign: 'center', color: '#666' }}>关闭</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -961,5 +1214,94 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginRight: 4,
     letterSpacing: 0.3,
+  },
+  // 蓝牙连接模态
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  modalCard: {
+    width: '92%',
+    maxWidth: 520,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+  },
+  modalSubtitle: {
+    marginTop: 6,
+    color: '#666',
+  },
+  scanButton: {
+    backgroundColor: '#4a90e2',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  scanButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  deviceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: '#eee',
+  },
+  deviceName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  deviceMeta: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 2,
+  },
+  connectBtn: {
+    backgroundColor: '#4a90e2',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+  },
+  connectBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  // 调试工具
+  debugBtn: {
+    backgroundColor: '#4a90e2',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  debugBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  debugBtnSecondary: {
+    backgroundColor: 'rgba(74,144,226,0.12)',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(74,144,226,0.35)'
+  },
+  debugBtnSecondaryText: {
+    color: '#2c3e50',
+    fontWeight: '700',
   },
 }); 
